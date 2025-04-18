@@ -21,49 +21,9 @@ import sqlite3
 def import_modules():
     from generating_syllabus import generate_syllabus
     from teaching_agent import teaching_agent
-    
-    # Définition des classes dont nous avons besoin
-    class QuizGenerator:
-        def __init__(self):
-            self.llm = None  # À initialiser plus tard
-            
-        def generate_quiz(self, topic, difficulty="medium", num_questions=5):
-            # Simulation en attendant l'implémentation réelle
-            return [
-                {
-                    "question": f"Question exemple sur {topic}?",
-                    "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-                    "correct_answer": 0,
-                    "explanation": "Explication de la réponse"
-                }
-            ]
-    
-    class ProgressTracker:
-        def __init__(self, db_path="user_progress.db"):
-            self.db_path = db_path
-            
-        def record_quiz_result(self, user_id, topic, score, max_score):
-            pass  # À implémenter
-            
-        def record_study_session(self, user_id, topic, duration_minutes):
-            pass  # À implémenter
-            
-        def generate_dashboard(self, user_id, output_dir="dashboard"):
-            return None  # À implémenter
-    
-    class CourseRecommender:
-        def __init__(self, progress_tracker):
-            self.progress_tracker = progress_tracker
-            
-        def recommend_courses(self, user_id, interests=None, career_goal=None):
-            return []  # À implémenter
-            
-        def get_user_profile(self, user_id):
-            return {
-                "strengths": [],
-                "weaknesses": [],
-                "studied_topics": []
-            }
+    from quiz_generator import QuizGenerator
+    from progress_tracker import ProgressTracker
+    from course_recommender import CourseRecommender
     
     return {
         "generate_syllabus": generate_syllabus,
@@ -101,6 +61,12 @@ if "current_quiz" not in st.session_state:
     st.session_state.current_quiz = []
 if "quiz_score" not in st.session_state:
     st.session_state.quiz_score = 0
+if "current_question_idx" not in st.session_state:
+    st.session_state.current_question_idx = 0
+if "answers_submitted" not in st.session_state:
+    st.session_state.answers_submitted = []
+if "quiz_feedback" not in st.session_state:
+    st.session_state.quiz_feedback = ""
 if "study_start_time" not in st.session_state:
     st.session_state.study_start_time = datetime.now()
 
@@ -184,14 +150,131 @@ elif page == "Cours":
                 st.session_state.chat_history.append({"role": "assistant", "content": response})
                 st.chat_message("assistant").write(response)
 
-# Page Quiz (version simplifiée)
+# Page Quiz
 elif page == "Quiz":
     st.title("Quiz et exercices interactifs")
     
     if not st.session_state.current_topic:
         st.warning("Veuillez d'abord sélectionner un sujet d'étude dans la page Cours.")
     else:
-        st.info("Fonctionnalité de quiz en cours de développement...")
+        # Initialisation ou réinitialisation du quiz
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            difficulty = st.selectbox(
+                "Niveau de difficulté:",
+                ["facile", "moyen", "difficile"],
+                index=1
+            )
+            
+            num_questions = st.number_input(
+                "Nombre de questions:",
+                min_value=1,
+                max_value=10,
+                value=5
+            )
+            
+            if st.button("Générer un nouveau quiz"):
+                with st.spinner("Génération du quiz en cours..."):
+                    st.session_state.current_quiz = quiz_generator.generate_quiz(
+                        st.session_state.current_topic, 
+                        difficulty=difficulty,
+                        num_questions=int(num_questions)
+                    )
+                    st.session_state.quiz_active = True
+                    st.session_state.current_question_idx = 0
+                    st.session_state.quiz_score = 0
+                    st.session_state.quiz_feedback = ""
+                    st.session_state.answers_submitted = []
+                    st.success(f"Quiz sur {st.session_state.current_topic} généré avec succès!")
+                    st.rerun()
+        
+        with col1:
+            if not st.session_state.quiz_active and len(st.session_state.current_quiz) == 0:
+                st.info("Cliquez sur 'Générer un nouveau quiz' pour commencer.")
+            
+        # Affichage du quiz actif
+        if st.session_state.quiz_active and len(st.session_state.current_quiz) > 0:
+            # Vérifier si toutes les questions ont été répondues
+            if 'current_question_idx' in st.session_state and st.session_state.current_question_idx >= len(st.session_state.current_quiz):
+                st.success(f"Quiz terminé! Votre score final: {st.session_state.quiz_score}/{len(st.session_state.current_quiz)}")
+                
+                # Enregistrer les résultats du quiz
+                progress_tracker.record_quiz_result(
+                    st.session_state.user_id,
+                    st.session_state.current_topic,
+                    st.session_state.quiz_score,
+                    len(st.session_state.current_quiz)
+                )
+                
+                # Afficher le feedback pour toutes les questions
+                if 'answers_submitted' in st.session_state:
+                    for i, (question_idx, user_answer) in enumerate(st.session_state.answers_submitted):
+                        question = st.session_state.current_quiz[question_idx]
+                        is_correct = question["correct_answer"] == user_answer
+                        st.markdown(f"**Question {i+1}**: {question['question']}")
+                        
+                        # Afficher les options avec la bonne réponse et celle de l'utilisateur
+                        for j, option in enumerate(question["options"]):
+                            if j == question["correct_answer"] and j == user_answer:
+                                st.markdown(f"✅ **{option}** (Votre réponse - Correcte)")
+                            elif j == question["correct_answer"]:
+                                st.markdown(f"✅ **{option}** (Réponse correcte)")
+                            elif j == user_answer:
+                                st.markdown(f"❌ **{option}** (Votre réponse)")
+                            else:
+                                st.markdown(f"- {option}")
+                        
+                        st.markdown(f"**Explication**: {question['explanation']}")
+                        st.markdown("---")
+                
+                if st.button("Créer un nouveau quiz"):
+                    st.session_state.quiz_active = False
+                    st.rerun()
+            else:
+                # Afficher la question courante
+                if 'current_question_idx' not in st.session_state:
+                    st.session_state.current_question_idx = 0
+                
+                question = st.session_state.current_quiz[st.session_state.current_question_idx]
+                
+                st.subheader(f"Question {st.session_state.current_question_idx + 1}/{len(st.session_state.current_quiz)}")
+                st.markdown(f"**{question['question']}**")
+                
+                # Créer des boutons radio pour les options
+                user_answer = st.radio(
+                    "Choisissez votre réponse:",
+                    range(len(question["options"])),
+                    format_func=lambda i: question["options"][i],
+                    key=f"q_{st.session_state.current_question_idx}"
+                )
+                
+                # Bouton pour soumettre la réponse
+                if st.button("Soumettre la réponse"):
+                    # Évaluer la réponse
+                    evaluation = quiz_generator.evaluate_answer(question, user_answer)
+                    
+                    # Mettre à jour le score
+                    if evaluation["is_correct"]:
+                        st.session_state.quiz_score += 1
+                        st.success("✅ Correct! " + evaluation["feedback"])
+                    else:
+                        st.error("❌ Incorrect. " + evaluation["feedback"])
+                    
+                    # Enregistrer la réponse soumise
+                    if 'answers_submitted' not in st.session_state:
+                        st.session_state.answers_submitted = []
+                    st.session_state.answers_submitted.append((st.session_state.current_question_idx, user_answer))
+                    
+                    # Passer à la question suivante
+                    st.session_state.current_question_idx += 1
+                    
+                    # Recharger la page pour afficher la question suivante ou le résultat final
+                    st.rerun()
+                
+                # Afficher la progression
+                st.progress(st.session_state.current_question_idx / len(st.session_state.current_quiz))
+                st.markdown(f"Score actuel: {st.session_state.quiz_score}/{st.session_state.current_question_idx}")
 
 # Page Progression (version simplifiée)
 elif page == "Progression":
