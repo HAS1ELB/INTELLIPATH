@@ -918,7 +918,8 @@ else:
                     # Option pour ajouter des compétences manuellement
                     st.subheader("Ajouter une compétence pour commencer")
                     
-                    new_skill = st.text_input("Nom de la compétence:")
+                    #new_skill = st.text_input("Nom de la compétence:")
+                    new_skill = st.text_input("Nom de la compétence:", key="new_skill_input")
                     skill_level = st.slider(
                         "Niveau actuel:", 
                         min_value=1, 
