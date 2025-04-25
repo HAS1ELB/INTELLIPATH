@@ -1,0 +1,79 @@
+/* Style général */
+body {
+    color: #333;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Style pour les titres */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    color: #1e3a8a;
+}
+
+/* Style pour les cartes */
+div.stCard {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+/* Style pour les boutons */
+div.stButton > button {
+    border-radius: 5px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+div.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Style pour le chatbot */
+div.stChatMessage {
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+}
+
+div.stChatMessage[data-testid="chat-message-user"] {
+    background-color: #e6f3ff;
+}
+
+div.stChatMessage[data-testid="chat-message-assistant"] {
+    background-color: #f0f0f0;
+}
+
+/* Style pour les alertes */
+div.stAlert {
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+/* Style pour les sélecteurs */
+div.stSelectbox label, div.stSlider label {
+    font-weight: 500;
+    color: #555;
+}
+
+/* Style pour les onglets */
+button[role="tab"] {
+    font-weight: 500;
+}
+
+button[role="tab"][aria-selected="true"] {
+    background-color: #f0f7ff;
+}
+
+/* Style pour le footer */
+footer {
+    font-size: 0.8rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eaeaea;
+    text-align: center;
+    color: #666;
+}
