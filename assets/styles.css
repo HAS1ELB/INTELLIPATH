@@ -1,0 +1,255 @@
+/* Style général amélioré avec meilleure lisibilité */
+body {
+    color: #f0f0f0;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    background-color: #1a1a2e;
+    line-height: 1.6;
+}
+
+/* Style pour les titres avec meilleur contraste */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    color: #4fd1c5;
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid #4fd1c5;
+    padding-bottom: 0.8rem;
+}
+
+h2 {
+    font-size: 1.8rem;
+    color: #4fd1c5;
+}
+
+h3 {
+    font-size: 1.5rem;
+    color: #4fd1c5;
+}
+
+/* Style pour les conteneurs principaux */
+.stApp {
+    background-color: #1a1a2e;
+}
+
+/* Style pour les cartes avec meilleur contraste */
+div.stCard {
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    padding: 2rem;
+    margin-bottom: 1.8rem;
+    background-color: #16213e;
+    border: 1px solid #2a2a5a;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+div.stCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Style pour les formulaires avec meilleur contraste */
+div.stForm > div[data-testid="stForm"] {
+    background-color: #16213e;
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid #2a2a5a;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Style pour les champs de saisie avec meilleur contraste */
+div.stTextInput > div > div > input {
+    background-color: #0f3460;
+    border: 1px solid #2a2a5a;
+    color: #e0e0e0;
+    font-size: 1rem;
+    padding: 0.8rem;
+}
+
+div.stTextInput > div > div > input::placeholder {
+    color: #a0a0a0;
+}
+
+/* Style pour les boutons avec meilleur contraste */
+div.stButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background-color: #4fd1c5;
+    color: #0a0a1a;
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+div.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+    background-color: #65e0d5;
+}
+
+/* Style pour les sliders avec meilleur contraste */
+div.stSlider > div {
+    padding: 1.5rem 0;
+}
+
+div.stSlider label {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #c0c0c0;
+    margin-bottom: 0.5rem;
+}
+
+div.stSlider > div > div > div[role="slider"] {
+    background-color: #4fd1c5;
+}
+
+div.stSlider > div > div > div > div {
+    background-color: rgba(79, 209, 197, 0.3);
+}
+
+/* Style pour les checkboxes avec meilleur contraste */
+div.stCheckbox > div > label {
+    color: #e0e0e0;
+    font-size: 1rem;
+}
+
+div.stCheckbox > div > div > label > span {
+    border-color: #4fd1c5;
+}
+
+div.stCheckbox > div > div > label > span:hover {
+    border-color: #65e0d5;
+}
+
+/* Style pour les onglets avec meilleur contraste */
+button[role="tab"] {
+    font-weight: 600;
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px 8px 0 0;
+    color: #e0e0e0;
+    background-color: #16213e;
+}
+
+button[role="tab"][aria-selected="true"] {
+    background-color: #214075;
+    border-bottom: 3px solid #4fd1c5;
+    color: #ffffff;
+}
+
+/* Style pour la sidebar avec meilleur contraste */
+section[data-testid="stSidebar"] {
+    background-color: #0f3460;
+    border-right: 1px solid #2a2a5a;
+    padding-top: 2rem;
+}
+
+section[data-testid="stSidebar"] h1, 
+section[data-testid="stSidebar"] h2, 
+section[data-testid="stSidebar"] h3 {
+    color: #4fd1c5;
+}
+
+/* Style pour les sélecteurs avec meilleur contraste */
+div.stSelectbox > div > div {
+    background-color: #0f3460;
+    border: 1px solid #2a2a5a;
+    color: #e0e0e0;
+}
+
+div.stSelectbox label {
+    color: #c0c0c0;
+    font-size: 1rem;
+}
+
+/* Style pour les séparateurs */
+hr {
+    border: 0;
+    height: 2px;
+    background-image: linear-gradient(to right, rgba(79, 209, 197, 0), rgba(79, 209, 197, 0.7), rgba(79, 209, 197, 0));
+    margin: 2rem 0;
+}
+
+/* Style pour le chatbot avec meilleur contraste */
+div.stChatMessage {
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+div.stChatMessage[data-testid="chat-message-user"] {
+    background-color: #214075;
+    border-left: 4px solid #4fd1c5;
+}
+
+div.stChatMessage[data-testid="chat-message-assistant"] {
+    background-color: #16213e;
+    border-left: 4px solid #e91e63;
+}
+
+/* Amélioration de la taille du texte pour la lisibilité */
+p, li, div {
+    font-size: 1.05rem;
+    color: #e0e0e0;
+}
+
+/* Style pour les expanders avec meilleur contraste */
+details {
+    background-color: #16213e;
+    border-radius: 8px;
+    border: 1px solid #2a2a5a;
+    margin-bottom: 1.2rem;
+    overflow: hidden;
+}
+
+details > summary {
+    padding: 1.2rem;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #0f3460;
+    color: #e0e0e0;
+}
+
+details[open] > summary {
+    border-bottom: 1px solid #2a2a5a;
+}
+
+details > div {
+    padding: 1.5rem;
+}
+
+/* Pour les radio buttons */
+div.stRadio > div {
+    background-color: #16213e;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #2a2a5a;
+}
+
+div.stRadio label {
+    color: #e0e0e0;
+}
+
+/* Style pour les infobulles */
+div[data-baseweb="tooltip"] {
+    background-color: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #2a2a5a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Style du texte dans la barre de navigation */
+div.stTabs [data-testid="stVerticalBlock"] {
+    gap: 0.8rem;
+}
+
+/* Style spécifique pour le logo */
+img[alt="logo"] {
+    filter: drop-shadow(0 2px 5px rgba(79, 209, 197, 0.5));
+}
