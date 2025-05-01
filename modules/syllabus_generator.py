@@ -40,7 +40,7 @@ class SyllabusGenerator:
         Returns:
             str: Le syllabus généré au format Markdown
         """
-        # Système de prompts pour la génération du syllabus
+        # Système de prompts amélioré pour la génération du syllabus
         system_template = """
         Tu es un expert en conception pédagogique spécialisé dans la création de syllabus de cours.
         Ta mission est de créer un syllabus complet, structuré et engageant pour le sujet demandé.
@@ -48,13 +48,19 @@ class SyllabusGenerator:
         Le syllabus doit être présenté dans un format Markdown bien structuré et inclure:
         
         1. Un titre clair et une brève introduction au sujet
-        2. Les objectifs d'apprentissage
-        3. Une structure modulaire avec des sections numérotées
-        4. Pour chaque module:
-           - Titre et description
+        2. Les objectifs d'apprentissage concrets et mesurables
+        3. Les prérequis nécessaires pour suivre le cours
+        4. Une structure modulaire avec des sections numérotées
+        5. Pour chaque module:
+           - Titre clair et description détaillée
            - Concepts clés à maîtriser
-           - Activités d'apprentissage suggérées
-        5. Une timeline/calendrier suggéré
+           - Activités d'apprentissage suggérées et pratiques
+           - Ressources spécifiques au module (lectures, vidéos, outils)
+           - Petits exercices de vérification de compréhension
+        6. Une timeline/calendrier suggéré avec des jalons
+        7. Une bibliographie commentée des ressources principales
+        8. Des conseils méthodologiques pour optimiser l'apprentissage
+        9. Des suggestions de projets pratiques pour appliquer les connaissances
         
         {custom_requirements}
         
@@ -63,17 +69,34 @@ class SyllabusGenerator:
         - Logiquement organisé avec une progression naturelle des concepts
         - Pratique et applicable à des situations réelles
         - Engageant et stimulant pour l'apprenant
+        - À jour avec les dernières connaissances et pratiques du domaine
         
-        Utilise un format Markdown soigné avec des titres (##, ###), des listes à puces, et des séparateurs si nécessaire.
+        Utilise un format Markdown soigné avec:
+        - Titres et sous-titres hiérarchiques (##, ###, ####)
+        - Listes à puces et numérotées
+        - Emphase pour les concepts importants (*italique*, **gras**)
+        - Blocs de code pour les exemples techniques si nécessaire
+        - Citations pour les définitions ou points importants (>)
+        - Tableaux pour organiser l'information complexe si approprié
+        - Séparateurs (---) entre les grandes sections
+        
+        Le syllabus doit être détaillé mais bien structuré pour faciliter la navigation.
         """
         
-        # Prompt utilisateur qui spécifie le sujet et les exigences particulières
+        # Prompt utilisateur amélioré
         user_template = """
-        Crée un syllabus de cours complet sur le sujet: {topic}
+        Crée un syllabus de cours complet et détaillé sur le sujet: {topic}
         
-        Détails supplémentaires: {task}
+        Détails supplémentaires et exigences: {task}
         
         Le syllabus doit être en français et présenté dans un format Markdown clair et structuré.
+        
+        Assure-toi que le contenu est:
+        - Adapté au profil d'un apprenant autodidacte
+        - Progressif dans sa difficulté
+        - Accompagné de multiples exemples pratiques
+        - Enrichi de métaphores et d'analogies pour faciliter la compréhension
+        - Structuré pour encourager l'apprentissage actif
         """
         
         # Création du modèle de prompt
@@ -89,7 +112,14 @@ class SyllabusGenerator:
         syllabus = chain.invoke({
             "topic": topic,
             "task": task,
-            "custom_requirements": "Inclure des sections pour l'évaluation et des ressources recommandées."
+            "custom_requirements": """
+            Inclure également:
+            - Des techniques d'auto-évaluation pour chaque module
+            - Des suggestions de ressources complémentaires diversifiées (livres, articles, vidéos, podcasts)
+            - Des conseils pour surmonter les obstacles courants dans l'apprentissage de ce sujet
+            - Des liens entre les concepts théoriques et des applications pratiques réelles
+            - Une section "Pour aller plus loin" à la fin de chaque module
+            """
         })
         
         return syllabus

@@ -44,31 +44,54 @@ class TeachingAgent:
     
     def _get_system_prompt(self) -> str:
         """
-        Génère le prompt système pour l'agent enseignant
+        Génère le prompt système amélioré pour l'agent enseignant
         
         Returns:
             str: Le prompt système
         """
         return """
-        Tu es un professeur expert et pédagogue spécialisé dans {topic}. 
-        Ta mission est d'enseigner à l'apprenant en suivant le syllabus fourni.
+        Tu es un professeur expert et pédagogue spécialisé dans {topic}, avec 20 ans d'expérience en enseignement.
+        Ta mission est d'enseigner à l'apprenant en suivant le syllabus fourni, tout en adaptant ton approche
+        pédagogique à ses besoins spécifiques.
         
         ### Syllabus du cours:
         {syllabus}
         
-        ### Instructions:
-        1. Réponds aux questions de l'apprenant concernant le sujet avec clarté et pédagogie
-        2. Base tes réponses sur le contenu du syllabus quand c'est possible
-        3. Suis une progression logique dans l'enseignement en fonction du syllabus
-        4. Si une question sort du cadre du syllabus, indique-le gentiment tout en fournissant une réponse adaptée
-        5. Utilise des exemples concrets et des analogies pour faciliter la compréhension
-        6. Encourage l'apprenant à mettre en pratique ses connaissances
-        7. Identifie les lacunes potentielles et suggère des révisions quand nécessaire
+        ### Principes pédagogiques à suivre:
+        1. PERSONNALISATION: Adapte ton enseignement au niveau et aux questions spécifiques de l'apprenant
+        2. PROFONDEUR: Fournis des explications détaillées mais claires, en déconstruisant les concepts complexes
+        3. SOCRATIQUE: Utilise le questionnement pour guider l'apprenant vers la compréhension
+        4. CONTEXTUALISATION: Relie toujours les concepts théoriques à des applications pratiques réelles
+        5. PROGRESSION: Respecte une progression pédagogique logique, des fondamentaux vers la complexité
+        6. RENFORCEMENT: Reformule les concepts importants de différentes façons pour faciliter l'assimilation
+        7. EXEMPLIFICATION: Utilise systématiquement des exemples concrets et des analogies pertinentes
+        8. MÉTACOGNITION: Encourage la réflexion sur le processus d'apprentissage lui-même
+        
+        ### Instructions spécifiques:
+        1. Réponds aux questions avec clarté et précision, en utilisant un français soigné
+        2. Base tes réponses sur le contenu du syllabus, mais n'hésite pas à l'enrichir si nécessaire
+        3. Adapte le niveau de technicité de tes réponses aux connaissances démontrées par l'apprenant
+        4. Pour les concepts complexes, utilise la méthode "ELI5" (Explain Like I'm 5) puis approfondis progressivement
+        5. Intègre toujours des exemples concrets qui illustrent les applications pratiques des concepts
+        6. Pose occasionnellement des questions de vérification pour t'assurer de la compréhension
+        7. Si une question est en dehors du syllabus, indique-le clairement mais fournis quand même une réponse informative
+        8. Pour les sujets techniques, utilise la notation markdown pour formater clairement le code, les formules ou les listes
+
+        ### Techniques pédagogiques à utiliser:
+        - Métaphores et analogies pour rendre concret l'abstrait
+        - Schématisation verbale des concepts complexes
+        - Récapitulation des points clés à la fin des explications longues
+        - Contextualisation historique ou pratique des concepts
+        - Mise en perspective des connaissances dans l'écosystème global de la discipline
+        - Suggestion d'exercices pratiques adaptés pour consolider la compréhension
+        - Recommandation de ressources spécifiques pour approfondir un point précis
         
         ### Historique de la conversation:
         {conversation_history}
         
-        Réponds toujours en français avec une approche pédagogique, bienveillante et structurée.
+        Ton objectif est de créer une expérience d'apprentissage transformative en combinant expertise technique, 
+        clarté pédagogique et communication engageante. Réponds toujours en français avec une approche pédagogique,
+        bienveillante et structurée.
         """
     
     def seed_agent(self, syllabus: str, topic: str) -> None:
@@ -96,9 +119,15 @@ class TeachingAgent:
         if not self.syllabus or not self.topic:
             return "Veuillez d'abord initialiser l'agent avec un syllabus et un sujet."
         
+        # Analyse de la question pour déterminer le contexte
+        context = self._analyze_question(user_input)
+        
         # Préparation de l'historique de conversation formaté
         formatted_history = ""
-        for message in self.conversation_history:
+        # Ne prendre que les 5 derniers échanges pour éviter les tokens trop nombreux
+        relevant_history = self.conversation_history[-10:] if len(self.conversation_history) > 10 else self.conversation_history
+        
+        for message in relevant_history:
             role = "Apprenant" if message["role"] == "user" else "Professeur"
             formatted_history += f"{role}: {message['content']}\n\n"
         
@@ -115,3 +144,38 @@ class TeachingAgent:
         self.conversation_history.append({"role": "assistant", "content": response})
         
         return response
+    
+    def _analyze_question(self, question: str) -> str:
+        """
+        Analyse la question de l'utilisateur pour déterminer le contexte
+        
+        Args:
+            question: La question posée par l'utilisateur
+            
+        Returns:
+            str: Informations contextuelles supplémentaires
+        """
+        # Analyse simple pour identifier des mots-clés ou des types de questions
+        context = ""
+        
+        # Détection des questions de définition
+        if any(keyword in question.lower() for keyword in ["c'est quoi", "qu'est-ce que", "définition", "signifie"]):
+            context = "L'apprenant semble chercher une définition claire et accessible. "
+            
+        # Détection des questions de méthode
+        elif any(keyword in question.lower() for keyword in ["comment", "méthode", "procédure", "étape", "procéder"]):
+            context = "L'apprenant cherche une méthode ou une procédure étape par étape. "
+            
+        # Détection des questions de comparaison
+        elif any(keyword in question.lower() for keyword in ["différence", "comparer", "versus", "ou bien", "plutôt"]):
+            context = "L'apprenant cherche à comprendre une différence ou à comparer des concepts. "
+            
+        # Détection des questions d'application pratique
+        elif any(keyword in question.lower() for keyword in ["exemple", "pratique", "appliquer", "utiliser", "cas"]):
+            context = "L'apprenant cherche des exemples pratiques ou des cas d'application. "
+            
+        # Détection des questions de difficulté
+        elif any(keyword in question.lower() for keyword in ["difficile", "complexe", "comprends pas", "confus"]):
+            context = "L'apprenant semble rencontrer une difficulté de compréhension. "
+        
+        return context
