@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from modules.syllabus_generator import generate_syllabus
 from modules.teaching_agent import TeachingAgent
 from modules.utils import extract_modules_from_syllabus, markdown_to_html
+from modules.quiz_generator import QuizGenerator  # Nouvel import
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -76,6 +77,14 @@ if "current_topic" not in st.session_state:
     st.session_state.current_topic = ""
 if "modules" not in st.session_state:
     st.session_state.modules = []
+if "quiz_generator" not in st.session_state:  # Nouvelle variable de session
+    st.session_state.quiz_generator = QuizGenerator()
+if "current_quiz" not in st.session_state:  # Pour stocker le quiz actuel
+    st.session_state.current_quiz = []
+if "quiz_results" not in st.session_state:  # Pour stocker les résultats
+    st.session_state.quiz_results = []
+if "quiz_history" not in st.session_state:  # Pour stocker l'historique des quiz
+    st.session_state.quiz_history = []
 
 # Sidebar pour les informations et paramètres
 with st.sidebar:
@@ -109,7 +118,7 @@ with st.sidebar:
 st.title("IntelliPath - Assistant d'apprentissage IA")
 
 # Créer des onglets pour les différentes fonctionnalités
-tab1, tab2 = st.tabs(["📚 Générer un syllabus", "👨‍🏫 Discuter avec l'instructeur"])
+tab1, tab2, tab3 = st.tabs(["📚 Générer un syllabus", "👨‍🏫 Discuter avec l'instructeur", "📝 Quiz d'évaluation"])
 
 with tab1:
     st.markdown("""
@@ -167,6 +176,10 @@ with tab1:
             
             # Initialiser l'agent d'enseignement avec le nouveau syllabus
             st.session_state.teaching_agent.seed_agent(syllabus, topic)
+            
+            # Réinitialiser les quiz et résultats associés
+            st.session_state.current_quiz = []
+            st.session_state.quiz_results = []
             
             # Afficher le syllabus avec une mise en forme markdown
             st.markdown("### Votre syllabus personnalisé")
@@ -277,6 +290,154 @@ with tab2:
                         if col.button(suggestions[i + j], key=f"suggestion_{i+j}", use_container_width=True):
                             st.session_state.conversation_history.append({"role": "user", "content": suggestions[i + j]})
                             st.rerun()
+
+with tab3:
+    st.markdown("""
+    ### Testez vos connaissances avec des quiz personnalisés
+    
+    Choisissez un module du syllabus et générez un quiz personnalisé pour évaluer votre compréhension.
+    """)
+    
+    # Vérifier si un syllabus a été généré
+    if not st.session_state.syllabus:
+        st.info("Veuillez d'abord générer un syllabus dans l'onglet précédent.")
+    else:
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Sélection du module pour le quiz
+            module_options = [f"Module {m['index']}: {m['title'].split(':', 1)[1].strip() if ':' in m['title'] else m['title']}" 
+                             for m in st.session_state.modules]
+            selected_module = st.selectbox("Choisissez un module pour le quiz:", 
+                                         ["Tous les modules"] + module_options)
+        
+        with col2:
+            # Nombre de questions
+            num_questions = st.slider("Nombre de questions:", min_value=3, max_value=10, value=5, step=1)
+            
+            # Niveau de difficulté
+            difficulty = st.select_slider("Niveau de difficulté:", 
+                                       options=["facile", "moyen", "difficile"])
+        
+        # Bouton pour générer le quiz
+        if st.button("Générer un quiz", key="generate_quiz_button", use_container_width=True):
+            with st.spinner("Génération du quiz en cours..."):
+                # Déterminer le sujet du quiz en fonction de la sélection
+                if selected_module == "Tous les modules":
+                    quiz_topic = st.session_state.current_topic
+                else:
+                    # Extraire l'index du module sélectionné
+                    module_idx = int(selected_module.split(":")[0].replace("Module ", "")) - 1
+                    module_content = st.session_state.modules[module_idx]["content"]
+                    quiz_topic = selected_module
+                
+                # Générer le quiz
+                st.session_state.current_quiz = st.session_state.quiz_generator.generate_quiz(
+                    topic=quiz_topic,
+                    difficulty=difficulty,
+                    num_questions=num_questions
+                )
+                st.session_state.quiz_results = []
+        
+        # Afficher le quiz s'il est disponible
+        if st.session_state.current_quiz:
+            st.markdown("## Quiz")
+            
+            # Créer un formulaire pour le quiz
+            with st.form("quiz_form"):
+                for i, question in enumerate(st.session_state.current_quiz):
+                    st.markdown(f"### Question {i+1}")
+                    st.markdown(question.question)
+                    
+                    # Afficher les options avec des boutons radio
+                    answer_key = f"question_{i}"
+                    user_answer = st.radio(
+                        "Choisissez votre réponse:",
+                        options=question.options,
+                        key=answer_key
+                    )
+                    
+                    # Stocker l'index de la réponse choisie
+                    selected_idx = question.options.index(user_answer) if user_answer in question.options else -1
+                    
+                    st.write("---")
+                
+                submit_button = st.form_submit_button("Soumettre les réponses", use_container_width=True)
+            
+            # Traiter les réponses soumises
+            if submit_button:
+                score = 0
+                results = []
+                
+                for i, question in enumerate(st.session_state.current_quiz):
+                    answer_key = f"question_{i}"
+                    user_answer = st.session_state[answer_key]
+                    selected_idx = question.options.index(user_answer) if user_answer in question.options else -1
+                    
+                    is_correct = (selected_idx == question.correct_answer)
+                    if is_correct:
+                        score += 1
+                    
+                    results.append({
+                        "question": question.question,
+                        "user_answer": user_answer,
+                        "correct_answer": question.options[question.correct_answer],
+                        "is_correct": is_correct,
+                        "explanation": question.explanation
+                    })
+                
+                st.session_state.quiz_results = results
+                
+                # Afficher les résultats
+                st.markdown(f"## Résultats du quiz: {score}/{len(st.session_state.current_quiz)} points")
+                
+                for i, result in enumerate(st.session_state.quiz_results):
+                    with st.expander(f"Question {i+1} - {'✅ Correct' if result['is_correct'] else '❌ Incorrect'}"):
+                        st.markdown(f"**Question:** {result['question']}")
+                        st.markdown(f"**Votre réponse:** {result['user_answer']}")
+                        st.markdown(f"**Réponse correcte:** {result['correct_answer']}")
+                        st.markdown(f"**Explication:** {result['explanation']}")
+                
+                # Ajouter ce score à l'historique des progrès
+                current_quiz_id = f"{selected_module}_{difficulty}_{num_questions}"
+                if not any(h["id"] == current_quiz_id for h in st.session_state.quiz_history):
+                    st.session_state.quiz_history.append({
+                        "id": current_quiz_id,
+                        "module": selected_module,
+                        "difficulty": difficulty,
+                        "score": (score / len(st.session_state.current_quiz)) * 100,
+                        "date": time.strftime("%Y-%m-%d %H:%M")
+                    })
+                
+                # Afficher un graphique des progrès si plusieurs quiz ont été complétés
+                if len(st.session_state.quiz_history) > 1:
+                    st.markdown("## Vos progrès")
+                    
+                    import matplotlib.pyplot as plt
+                    import pandas as pd
+                    import numpy as np
+                    
+                    # Créer un dataframe avec l'historique des quiz
+                    df = pd.DataFrame(st.session_state.quiz_history)
+                    
+                    # Créer un graphique
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    ax.plot(df["date"], df["score"], marker='o', linestyle='-', linewidth=2)
+                    ax.set_xlabel("Date")
+                    ax.set_ylabel("Score (%)")
+                    ax.set_title("Évolution de vos scores aux quiz")
+                    ax.grid(True, alpha=0.3)
+                    
+                    # Améliorer l'affichage
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    
+                    # Afficher le graphique
+                    st.pyplot(fig)
+                
+                # Ajouter un bouton pour retourner au syllabus et poursuivre l'apprentissage
+                if st.button("Retourner à l'étude du syllabus", use_container_width=True):
+                    st.switch_page("app.py")  # Cette fonction nécessite une organisation multi-pages
 
 # Footer
 st.divider()

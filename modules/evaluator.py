@@ -173,3 +173,51 @@ class LearningEvaluator:
         })
         
         return result
+    
+    # Dans evaluator.py, ajouter une méthode pour évaluer les résultats d'un quiz
+def evaluate_quiz_results(self, quiz_results):
+    """
+    Analyse les résultats d'un quiz et fournit des recommandations d'apprentissage
+    
+    Args:
+        quiz_results: Liste des résultats du quiz
+        
+    Returns:
+        str: Analyse et recommandations
+    """
+    correct_answers = sum(1 for result in quiz_results if result["is_correct"])
+    total_questions = len(quiz_results)
+    score_percentage = (correct_answers / total_questions) * 100
+    
+    # Grouper les questions par catégorie de concepts (à adapter selon votre structure)
+    incorrect_concepts = []
+    for result in quiz_results:
+        if not result["is_correct"]:
+            # Ici vous pourriez ajouter une logique pour identifier les concepts concernés
+            incorrect_concepts.append(result["question"])
+    
+    # Générer une analyse avec le LLM
+    prompt = ChatPromptTemplate.from_template("""
+    En tant qu'expert en éducation, analyse ces résultats de quiz et propose des recommandations:
+    
+    Score: {score}% ({correct}/{total} questions correctes)
+    
+    Questions incorrectes:
+    {incorrect_questions}
+    
+    Propose:
+    1. Une analyse des points forts et points à améliorer
+    2. 2-3 ressources spécifiques pour renforcer les concepts mal maîtrisés
+    3. Des exercices pratiques ciblés
+    """)
+    
+    chain = prompt | self.llm | StrOutputParser()
+    
+    analysis = chain.invoke({
+        "score": score_percentage,
+        "correct": correct_answers,
+        "total": total_questions,
+        "incorrect_questions": "\n".join(incorrect_concepts)
+    })
+    
+    return analysis
