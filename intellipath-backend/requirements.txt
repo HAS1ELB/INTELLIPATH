@@ -1,0 +1,10 @@
+flask>=2.0.0
+flask-cors>=3.0.10
+langchain>=0.0.267
+langchain-groq>=0.0.5
+langchain_core>=0.1.0
+pydantic>=2.0.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+python-dotenv>=0.21.0
+markdown>=3.5.0
