@@ -1,4 +1,4 @@
-intellipath_frontend/
+intellipath-frontend/
 node_modules/
 __pycache__/
 *.env
