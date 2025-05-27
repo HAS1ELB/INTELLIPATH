@@ -53,31 +53,63 @@ class SupabaseDB:
     
     def get_syllabus(self, syllabus_id: str) -> Dict:
         """Récupère un syllabus par son ID"""
-        return self.supabase.table('syllabus').select('*').eq('id', syllabus_id).single().execute()
-    
+        try:
+            response = self.supabase.table('syllabus')\
+                .select('*')\
+                .eq('id', syllabus_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            else:
+                return None
+        except Exception as e:
+            print(f"Erreur lors de la récupération du syllabus: {e}")
+            return None
+        
     def get_user_syllabi(self, user_id: str) -> List[Dict]:
         """Récupère tous les syllabus d'un utilisateur"""
-        # Syllabus créés par l'utilisateur
-        created = self.supabase.table('syllabus').select('*').eq('created_by', user_id).execute()
-        
-        # Syllabus auxquels l'utilisateur est inscrit
-        enrolled = self.supabase.table('syllabus')\
-            .select('syllabus.*')\
-            .join('user_progress', 'syllabus.id', 'user_progress.syllabus_id')\
-            .eq('user_progress.user_id', user_id)\
-            .execute()
-        
-        # Combiner et dédupliquer les résultats
-        all_syllabi = created.data + enrolled.data
-        unique_ids = set()
-        result = []
-        
-        for item in all_syllabi:
-            if item['id'] not in unique_ids:
-                unique_ids.add(item['id'])
-                result.append(item)
-        
-        return result
+        try:
+            # Syllabus créés par l'utilisateur
+            created_response = self.supabase.table('syllabus')\
+                .select('*')\
+                .eq('created_by', user_id)\
+                .execute()
+            
+            created = created_response.data if created_response.data else []
+            
+            # Récupérer les IDs des syllabus où l'utilisateur a de la progression
+            progress_response = self.supabase.table('user_progress')\
+                .select('syllabus_id')\
+                .eq('user_id', user_id)\
+                .execute()
+            
+            enrolled_ids = [p['syllabus_id'] for p in (progress_response.data or [])]
+            
+            # Récupérer les syllabus correspondants
+            enrolled = []
+            if enrolled_ids:
+                enrolled_response = self.supabase.table('syllabus')\
+                    .select('*')\
+                    .in_('id', enrolled_ids)\
+                    .execute()
+                enrolled = enrolled_response.data if enrolled_response.data else []
+            
+            # Combiner et dédupliquer les résultats
+            all_syllabi = created + enrolled
+            unique_ids = set()
+            result = []
+            
+            for item in all_syllabi:
+                if item['id'] not in unique_ids:
+                    unique_ids.add(item['id'])
+                    result.append(item)
+            
+            return result
+        except Exception as e:
+            print(f"Erreur lors de la récupération des syllabus: {e}")
+            return []
+
     
     # === Méthodes pour les modules ===
     
@@ -109,7 +141,19 @@ class SupabaseDB:
     
     def get_module(self, module_id: str) -> Dict:
         """Récupère un module par son ID"""
-        return self.supabase.table('modules').select('*').eq('id', module_id).single().execute()
+        try:
+            response = self.supabase.table('modules')\
+                .select('*')\
+                .eq('id', module_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            else:
+                return None
+        except Exception as e:
+            print(f"Erreur lors de la récupération du module: {e}")
+            return None
     
     # === Méthodes pour les quiz ===
     
@@ -254,17 +298,22 @@ class SupabaseDB:
     
     def get_conversation(self, user_id: str, syllabus_id: str) -> Dict:
         """Récupère une conversation"""
-        response = self.supabase.table('conversations')\
-            .select('*')\
-            .eq('user_id', user_id)\
-            .eq('syllabus_id', syllabus_id)\
-            .single()\
-            .execute()
-        
-        if response.data:
-            response.data['messages'] = json.loads(response.data['messages'])
-        
-        return response.data
+        try:
+            response = self.supabase.table('conversations')\
+                .select('*')\
+                .eq('user_id', user_id)\
+                .eq('syllabus_id', syllabus_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                data = response.data[0]
+                data['messages'] = json.loads(data['messages'])
+                return data
+            else:
+                return None
+        except Exception as e:
+            print(f"Erreur lors de la récupération de la conversation: {e}")
+            return None
     
     # === Méthodes pour les sessions ===
     
@@ -280,9 +329,16 @@ class SupabaseDB:
     
     def get_session(self, session_id: str) -> Dict:
         """Récupère une session par son ID"""
-        return self.supabase.table('sessions')\
-            .select('*')\
-            .eq('id', session_id)\
-            .single()\
-            .execute()\
-            .data
+        try:
+            response = self.supabase.table('sessions')\
+                .select('*')\
+                .eq('id', session_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            else:
+                return None
+        except Exception as e:
+            print(f"Erreur lors de la récupération de la session: {e}")
+            return None
