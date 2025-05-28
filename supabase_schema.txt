@@ -1,0 +1,210 @@
+-- Schéma de base de données PostgreSQL pour IntelliPath avec Supabase
+
+-- Configuration des extensions nécessaires
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Table des utilisateurs
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL, -- Stocké avec pgcrypto
+    first_name TEXT,
+    last_name TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des syllabus
+CREATE TABLE IF NOT EXISTS syllabus (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    topic TEXT NOT NULL,
+    level TEXT NOT NULL,
+    duration TEXT NOT NULL,
+    learning_style TEXT NOT NULL,
+    content TEXT NOT NULL, -- Le contenu complet du syllabus
+    include_projects BOOLEAN DEFAULT TRUE,
+    include_resources BOOLEAN DEFAULT TRUE,
+    include_assessments BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Table des modules (chapitres du syllabus)
+CREATE TABLE IF NOT EXISTS modules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    syllabus_id UUID REFERENCES syllabus(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    order_index INTEGER NOT NULL, -- Pour maintenir l'ordre des modules
+    content TEXT, -- Contenu détaillé du module
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des quiz
+CREATE TABLE IF NOT EXISTS quizzes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    syllabus_id UUID REFERENCES syllabus(id) ON DELETE CASCADE,
+    module_id UUID REFERENCES modules(id) ON DELETE CASCADE, -- NULL si le quiz couvre tout le syllabus
+    title TEXT NOT NULL,
+    difficulty TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des questions de quiz
+CREATE TABLE IF NOT EXISTS quiz_questions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    quiz_id UUID REFERENCES quizzes(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    options JSONB NOT NULL, -- Tableau des options sous format JSON
+    correct_answer INTEGER NOT NULL, -- Index de la réponse correcte
+    explanation TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des tentatives de quiz par utilisateur
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    quiz_id UUID REFERENCES quizzes(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL,
+    total_questions INTEGER NOT NULL,
+    answers JSONB, -- Réponses de l'utilisateur au format JSON
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table de progression des utilisateurs
+CREATE TABLE IF NOT EXISTS user_progress (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    syllabus_id UUID REFERENCES syllabus(id) ON DELETE CASCADE,
+    module_id UUID REFERENCES modules(id) ON DELETE CASCADE,
+    status TEXT NOT NULL, -- 'not_started', 'in_progress', 'completed'
+    completion_percentage INTEGER DEFAULT 0,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des conversations avec l'agent d'enseignement
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    syllabus_id UUID REFERENCES syllabus(id) ON DELETE CASCADE,
+    messages JSONB NOT NULL, -- Historique des messages au format JSON
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Table des sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    syllabus_id UUID REFERENCES syllabus(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '30 days')
+);
+
+-- Ajout de politiques de sécurité RLS (Row Level Security)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE syllabus ENABLE ROW LEVEL SECURITY;
+ALTER TABLE modules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quiz_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+
+-- Création des politiques RLS
+-- Utilisateurs peuvent voir leur propre profil
+CREATE POLICY user_policy ON users
+    USING (auth.uid() = id);
+
+-- Syllabus visibles par leur créateur et ceux qui y sont inscrits
+CREATE POLICY syllabus_policy ON syllabus
+    USING (
+        created_by = auth.uid() OR 
+        EXISTS (SELECT 1 FROM user_progress WHERE user_id = auth.uid() AND syllabus_id = syllabus.id)
+    );
+
+-- Modules visibles par les utilisateurs qui ont accès au syllabus
+CREATE POLICY modules_policy ON modules
+    USING (
+        EXISTS (
+            SELECT 1 FROM syllabus 
+            WHERE id = modules.syllabus_id AND 
+            (created_by = auth.uid() OR 
+             EXISTS (SELECT 1 FROM user_progress WHERE user_id = auth.uid() AND syllabus_id = syllabus.id))
+        )
+    );
+
+-- Quiz visibles par les utilisateurs qui ont accès au syllabus
+CREATE POLICY quizzes_policy ON quizzes
+    USING (
+        EXISTS (
+            SELECT 1 FROM syllabus 
+            WHERE id = quizzes.syllabus_id AND 
+            (created_by = auth.uid() OR 
+             EXISTS (SELECT 1 FROM user_progress WHERE user_id = auth.uid() AND syllabus_id = syllabus.id))
+        )
+    );
+
+-- Questions de quiz visibles par les utilisateurs qui ont accès au quiz
+CREATE POLICY quiz_questions_policy ON quiz_questions
+    USING (
+        EXISTS (
+            SELECT 1 FROM quizzes 
+            WHERE id = quiz_questions.quiz_id AND
+            EXISTS (
+                SELECT 1 FROM syllabus 
+                WHERE id = quizzes.syllabus_id AND 
+                (created_by = auth.uid() OR 
+                 EXISTS (SELECT 1 FROM user_progress WHERE user_id = auth.uid() AND syllabus_id = syllabus.id))
+            )
+        )
+    );
+
+-- Tentatives de quiz visibles uniquement par l'utilisateur qui les a réalisées
+CREATE POLICY quiz_attempts_policy ON quiz_attempts
+    USING (user_id = auth.uid());
+
+-- Progression visible uniquement par l'utilisateur concerné
+CREATE POLICY user_progress_policy ON user_progress
+    USING (user_id = auth.uid());
+
+-- Conversations visibles uniquement par l'utilisateur concerné
+CREATE POLICY conversations_policy ON conversations
+    USING (user_id = auth.uid());
+
+-- Sessions visibles uniquement par l'utilisateur concerné
+CREATE POLICY sessions_policy ON sessions
+    USING (user_id = auth.uid());
+
+-- Fonctions pour la gestion des utilisateurs via Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email)
+  VALUES (new.id, new.email);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Déclencheur pour créer un profil utilisateur lors de l'inscription
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_modules_syllabus_id ON modules(syllabus_id);
+CREATE INDEX IF NOT EXISTS idx_quizzes_syllabus_id ON quizzes(syllabus_id);
+CREATE INDEX IF NOT EXISTS idx_quizzes_module_id ON quizzes(module_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz_id ON quiz_questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_id ON quiz_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_progress_syllabus_id ON user_progress(syllabus_id);
+CREATE INDEX IF NOT EXISTS idx_user_progress_module_id ON user_progress(module_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_syllabus_id ON conversations(syllabus_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_syllabus_id ON sessions(syllabus_id);
