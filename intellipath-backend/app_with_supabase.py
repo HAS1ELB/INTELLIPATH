@@ -5,7 +5,7 @@ import os
 import uuid
 from datetime import datetime
 import json
-
+import supabase
 # Chargement des modules personnalisés
 from modules.syllabus_generator import generate_syllabus
 from modules.teaching_agent import TeachingAgent
@@ -123,8 +123,19 @@ def conversation(session_id):
     try:
         print(f"Nouvelle requête de conversation pour session {session_id}")
         
-        # POUR LES TESTS : utilisez l'user_id connu
-        user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"
+        # Récupération du token JWT
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Authentification requise"}), 401
+
+        token = auth_header.split(' ')[1]
+        try:
+            user_response = db.supabase.auth.get_user(token)
+            if not user_response or not user_response.user:
+                return jsonify({"error": "Token invalide"}), 401
+            user_id = user_response.user.id
+        except Exception as e:
+            return jsonify({"error": f"Token invalide: {str(e)}"}), 401
         
         # Récupération de la session
         session = db.get_session(session_id)
@@ -186,8 +197,19 @@ def conversation(session_id):
 @app.route('/api/quiz/<session_id>', methods=['POST'])
 def generate_quiz(session_id):
     """Génère un quiz et l'enregistre dans la base de données"""
-    # TEMPORAIREMENT DÉSACTIVÉE POUR LES TESTS
-    user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"  # Remplacez par votre user_id
+    # Récupération du token JWT
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Authentification requise"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
+    except Exception as e:
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
     
     # Récupération de la session
     session = db.get_session(session_id)
@@ -273,8 +295,19 @@ def generate_quiz(session_id):
 @app.route('/api/quiz/submit/<quiz_id>', methods=['POST'])
 def submit_quiz(quiz_id):
     """Soumet les réponses d'un quiz et enregistre la tentative"""
-    # TEMPORAIREMENT DÉSACTIVÉE POUR LES TESTS
-    user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"  # Remplacez par votre user_id
+    # Récupération du token JWT
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Authentification requise"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
+    except Exception as e:
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
     
     data = request.json
     answers = data.get('answers', [])
@@ -346,8 +379,19 @@ def submit_quiz(quiz_id):
 @app.route('/api/session/<session_id>', methods=['GET'])
 def get_session(session_id):
     """Récupère les données d'une session"""
-    # TEMPORAIREMENT DÉSACTIVÉE POUR LES TESTS
-    user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"  # Remplacez par votre user_id
+    # Récupération du token JWT
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Authentification requise"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
+    except Exception as e:
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
     
     try:
         # Récupération de la session
@@ -390,9 +434,20 @@ def get_session(session_id):
 @app.route('/api/user/progress', methods=['GET'])
 def get_user_progress():
     """Récupère la progression globale de l'utilisateur"""
-    # TEMPORAIREMENT DÉSACTIVÉE POUR LES TESTS
-    user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"  # Remplacez par votre user_id
-    
+    # Récupération du token JWT
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Authentification requise"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
+    except Exception as e:
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
+        
     try:
         # Récupération des syllabus de l'utilisateur
         syllabi = db.get_user_syllabi(user_id)
@@ -428,8 +483,19 @@ def get_user_progress():
 @app.route('/api/module/<module_id>/complete', methods=['POST'])
 def complete_module(module_id):
     """Marque un module comme complété"""
-    # TEMPORAIREMENT DÉSACTIVÉE POUR LES TESTS
-    user_id = "a718a671-3c3b-4ff2-beaf-ef4d8316fae6"  # Remplacez par votre user_id
+    # Récupération du token JWT
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Authentification requise"}), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
+    except Exception as e:
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
     
     try:
         # Récupération du module
