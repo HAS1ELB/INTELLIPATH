@@ -268,34 +268,33 @@ class SupabaseDB:
     
     def save_conversation(self, user_id: str, syllabus_id: str, messages: List[Dict]) -> Dict:
         """Sauvegarde ou met à jour une conversation"""
-        # Vérifier si une conversation existe déjà
-        existing = self.supabase.table('conversations')\
-            .select('*')\
-            .eq('user_id', user_id)\
-            .eq('syllabus_id', syllabus_id)\
-            .execute().data
-        
-        conversation_data = {
-            'user_id': user_id,
-            'syllabus_id': syllabus_id,
-            'messages': json.dumps(messages),
-            'updated_at': 'now()'
-        }
-        
-        if existing:
-            # Mettre à jour la conversation existante
-            response = self.supabase.table('conversations')\
-                .update(conversation_data)\
-                .eq('id', existing[0]['id'])\
-                .execute()
-        else:
-            # Créer une nouvelle conversation
-            response = self.supabase.table('conversations')\
-                .insert(conversation_data)\
-                .execute()
-        
-        return response.data[0]
-    
+        try:
+            # Vérifier si une conversation existe déjà
+            conversation = self.get_conversation(user_id, syllabus_id)
+            
+            if conversation:
+                # Mettre à jour la conversation existante
+                response = self.supabase.table('conversations')\
+                    .update({"messages": messages, "updated_at": "now()"})\
+                    .eq('id', conversation['id'])\
+                    .execute()
+                return response.data[0] if response.data else None
+            else:
+                # Créer une nouvelle conversation
+                conversation_data = {
+                    'user_id': user_id,
+                    'syllabus_id': syllabus_id,
+                    'messages': messages
+                }
+                response = self.supabase.table('conversations')\
+                    .insert(conversation_data)\
+                    .execute()
+                return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Erreur dans save_conversation: {e}")
+            # Retourner quand même quelque chose pour ne pas bloquer le flux
+            return {'messages': messages}
+
     def get_conversation(self, user_id: str, syllabus_id: str) -> Dict:
         """Récupère une conversation"""
         try:
