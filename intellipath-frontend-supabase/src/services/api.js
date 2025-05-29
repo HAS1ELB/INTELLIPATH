@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://intellipath-mdly.onrender.com/api';
 
 // Fonction utilitaire pour récupérer le token d'authentification
 const getAuthHeader = async () => {
