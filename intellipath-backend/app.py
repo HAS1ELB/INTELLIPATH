@@ -194,6 +194,18 @@ def conversation(session_id):
             # Réponse de secours en cas d'erreur avec l'agent
             if "module 1" in message.lower():
                 response = f"Le Module 1 de notre cours sur {syllabus_data['topic']} couvre les concepts fondamentaux et les bases essentielles. Il a été conçu pour établir une compréhension solide des principes clés."
+            elif "module 2" in message.lower():
+                response = f"Le Module 2 se concentre sur la préparation et le traitement des données, étape cruciale dans {syllabus_data['topic']}. Il couvre le nettoyage, la transformation et l'organisation des données."
+            elif "module 3" in message.lower():
+                response = f"Le Module 3 explore les algorithmes et méthodes avancées de {syllabus_data['topic']}. Il développe les techniques et outils pratiques pour résoudre des problèmes complexes."
+            elif "module 4" in message.lower():
+                response = f"Le Module 4 aborde l'évaluation et l'optimisation des modèles dans {syllabus_data['topic']}. Il enseigne comment mesurer les performances et améliorer les résultats."
+            elif "module 5" in message.lower():
+                response = f"Le Module 5 couvre les aspects avancés et les applications pratiques de {syllabus_data['topic']}. Il prépare à la mise en œuvre dans des contextes réels."
+            elif "module 6" in message.lower():
+                response = f"Le Module 6 se concentre sur le déploiement et la maintenance des solutions {syllabus_data['topic']}. Il enseigne les bonnes pratiques pour la production."
+            elif any(word in message.lower() for word in ["module", "cours", "leçon"]):
+                response = f"Ce module fait partie de notre cours complet sur {syllabus_data['topic']}. Il contient des concepts essentiels, des exercices pratiques et des ressources d'apprentissage adaptées à votre niveau."
             else:
                 response = f"Je suis votre assistant pour le cours '{syllabus_data['topic']}'. Comment puis-je vous aider dans votre apprentissage aujourd'hui?"
         
@@ -437,7 +449,7 @@ def submit_quiz(quiz_id):
                 syllabus_id=syllabus_id,
                 module_id=module_id,
                 status='completed' if completion_percentage >= 70 else 'in_progress',
-                completion_percentage=completion_percentage
+                completion_percentage=int(completion_percentage)
             )
         
         return jsonify({
@@ -450,7 +462,43 @@ def submit_quiz(quiz_id):
     except Exception as e:
         print(f"Erreur lors de la soumission du quiz: {e}")
         return jsonify({"error": "Erreur interne du serveur"}), 500
-
+@app.route('/api/quiz/<quiz_id>', methods=['GET'])
+def get_quiz_with_questions(quiz_id):
+    """Récupère un quiz avec ses questions"""
+    try:
+        # Vérification de l'authentification
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Authentification requise"}), 401
+        
+        # Récupération du token JWT
+        token = auth_header.split(' ')[1]
+        
+        try:
+            # Vérifier le token avec Supabase
+            user_response = db.supabase.auth.get_user(token)
+            if not user_response or not user_response.user:
+                return jsonify({"error": "Token invalide"}), 401
+            user_id = user_response.user.id
+        except Exception as e:
+            return jsonify({"error": f"Token invalide: {str(e)}"}), 401
+        
+        # Récupérer le quiz et ses questions
+        quiz_data = db.get_quiz_with_questions(quiz_id)
+        
+        if not quiz_data['quiz']:
+            return jsonify({"error": "Quiz non trouvé"}), 404
+        
+        return jsonify({
+            'quiz': quiz_data['quiz'],
+            'questions': quiz_data['questions']
+        })
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération du quiz: {e}")
+        return jsonify({"error": "Erreur interne du serveur"}), 500
+    
+    
 @app.route('/api/debug/quiz/<quiz_id>', methods=['GET'])
 def debug_quiz(quiz_id):
     """Debug: Affiche les détails d'un quiz"""
@@ -647,7 +695,7 @@ def complete_module(module_id):
             syllabus_id=syllabus_id,
             module_id=None,
             status='in_progress' if syllabus_completion < 100 else 'completed',
-            completion_percentage=syllabus_completion
+            completion_percentage=int(syllabus_completion)
         )
         
         return jsonify({

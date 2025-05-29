@@ -175,26 +175,22 @@ export const api = {
       }
     },
     
+    // NOUVELLE VERSION
     getQuizWithQuestions: async (quizId) => {
       try {
-        // Cette fonction utilise directement Supabase pour récupérer un quiz et ses questions
-        const { data: quiz, error: quizError } = await supabase
-          .from('quizzes')
-          .select('*')
-          .eq('id', quizId)
-          .single();
+        // Utilise l'API Flask pour récupérer un quiz et ses questions
+        const headers = await getAuthHeader();
+        const response = await fetch(`${API_URL}/quiz/${quizId}`, {
+          method: 'GET',
+          headers,
+        });
         
-        if (quizError) throw quizError;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erreur lors de la récupération du quiz');
+        }
         
-        const { data: questions, error: questionsError } = await supabase
-          .from('quiz_questions')
-          .select('*')
-          .eq('quiz_id', quizId)
-          .order('id');
-        
-        if (questionsError) throw questionsError;
-        
-        return { quiz, questions };
+        return await response.json();
       } catch (error) {
         console.error('Erreur API:', error);
         throw error;

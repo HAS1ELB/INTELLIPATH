@@ -24,6 +24,11 @@ export default function QuizView() {
       try {
         setLoading(true);
         
+        // AJOUTER CES LOGS
+        console.log('🔍 QuizView - Paramètres reçus:');
+        console.log('  - quizId:', quizId);
+        console.log('  - location.state:', location.state);
+
         // Si les données sont passées via l'état de navigation
         if (location.state && location.state.quiz) {
           console.log('📥 Chargement quiz depuis l\'état');

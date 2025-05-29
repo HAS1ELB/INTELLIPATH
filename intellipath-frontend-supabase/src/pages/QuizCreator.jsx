@@ -94,9 +94,15 @@ export default function QuizCreator() {
       
       if (response.quiz_id) {
         console.log('✅ Quiz généré avec succès, ID:', response.quiz_id);
+        console.log('🧭 Navigation vers:', `/quiz/${response.quiz_id}`);
+        console.log('📄 Objet navigate:', navigate);
         
-        // Naviguer vers la page de quiz avec l'ID
-        navigate(`/quiz/${response.quiz_id}`);
+        // Attendre un peu avant la navigation pour s'assurer que le quiz est bien sauvé
+        setTimeout(() => {
+          navigate(`/quiz/${response.quiz_id}`);
+          console.log('✅ Navigation effectuée vers:', `/quiz/${response.quiz_id}`);
+        }, 500);
+        
       } else if (response.quiz) {
         console.log('✅ Quiz généré (sans ID), utilisation de l\'état');
         

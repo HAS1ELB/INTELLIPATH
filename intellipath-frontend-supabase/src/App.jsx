@@ -44,8 +44,8 @@ function App() {
             <Route path="/syllabus/:id" element={<PrivateRoute><SyllabusView /></PrivateRoute>} />
             <Route path="/module/:id" element={<PrivateRoute><ModuleView /></PrivateRoute>} />
             <Route path="/quiz/create/:sessionId" element={<PrivateRoute><QuizCreator /></PrivateRoute>} />
-            <Route path="/quiz/:id" element={<PrivateRoute><QuizView /></PrivateRoute>} />
             <Route path="/chat/:sessionId" element={<PrivateRoute><ChatView /></PrivateRoute>} />
+            <Route path="/quiz/:quizId" element={<PrivateRoute><QuizView /></PrivateRoute>} />
             
             {/* Route 404 */}
             <Route path="*" element={<div className="text-center"><h1 className="text-3xl font-bold mb-4">Page non trouvée</h1><p>La page que vous recherchez n'existe pas.</p></div>} />
