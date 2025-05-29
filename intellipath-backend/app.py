@@ -219,7 +219,7 @@ def conversation(session_id):
 def generate_quiz(session_id):
     """Génère un quiz et l'enregistre dans la base de données"""
     try:
-        print(f"Nouvelle requête de génération de quiz pour session {session_id}")
+        print(f"🔍 Nouvelle requête de génération de quiz pour session {session_id}")
         
         # Vérification de l'authentification
         auth_header = request.headers.get('Authorization')
@@ -238,10 +238,10 @@ def generate_quiz(session_id):
         except Exception as e:
             return jsonify({"error": f"Token invalide: {str(e)}"}), 401
         
-        # Récupération de la session (peut être session_id ou syllabus_id)
+        # Récupération de la session
         session = db.get_session(session_id)
         if not session:
-            print(f"Session {session_id} non trouvée")
+            print(f"❌ Session {session_id} non trouvée")
             return jsonify({"error": "Session non trouvée"}), 404
         
         # Vérifier que l'utilisateur a accès à cette session
@@ -249,36 +249,47 @@ def generate_quiz(session_id):
             return jsonify({"error": "Accès non autorisé à cette session"}), 403
         
         syllabus_id = session['syllabus_id']
+        print(f"✅ Session trouvée, syllabus_id: {syllabus_id}")
         
         data = request.json
         module_index = data.get('module_index')
         num_questions = data.get('num_questions', 5)
         difficulty = data.get('difficulty', 'moyen')
         
+        print(f"📝 Paramètres du quiz: module_index={module_index}, num_questions={num_questions}, difficulty={difficulty}")
+        
         # Récupération du syllabus
         syllabus_data = db.get_syllabus(syllabus_id)
         if not syllabus_data:
+            print(f"❌ Syllabus {syllabus_id} non trouvé")
             return jsonify({"error": "Syllabus non trouvé"}), 404
+        
+        print(f"✅ Syllabus trouvé: {syllabus_data['topic']}")
         
         # Récupération des modules
         modules = db.get_modules(syllabus_id)
+        print(f"📚 Nombre de modules trouvés: {len(modules)}")
         
         # Déterminer le sujet du quiz et le module_id si applicable
         module_id = None
-        if module_index is None:
+        if module_index is None or module_index == -1:
             quiz_topic = syllabus_data['topic']
             quiz_title = f"Quiz complet sur {quiz_topic}"
+            print(f"🎯 Quiz complet sur le syllabus: {quiz_topic}")
         else:
             module_idx = int(module_index)
             if module_idx < 0 or module_idx >= len(modules):
+                print(f"❌ Index de module invalide: {module_idx} (max: {len(modules)-1})")
                 return jsonify({"error": "Index de module invalide"}), 400
             
             module = modules[module_idx]
             module_id = module['id']
             quiz_topic = module['title']
             quiz_title = f"Quiz sur {quiz_topic}"
+            print(f"🎯 Quiz sur le module: {quiz_topic}")
         
         # Créer l'entrée du quiz dans la base de données
+        print(f"💾 Création du quiz en base de données...")
         quiz = db.create_quiz(
             syllabus_id=syllabus_id,
             title=quiz_title,
@@ -287,10 +298,14 @@ def generate_quiz(session_id):
         )
         
         if not quiz:
+            print(f"❌ Erreur lors de la création du quiz en base")
             return jsonify({"error": "Erreur lors de la création du quiz"}), 500
+        
+        print(f"✅ Quiz créé avec l'ID: {quiz['id']}")
         
         # Générer le quiz
         try:
+            print(f"🤖 Début de la génération IA du quiz...")
             quiz_generator = QuizGenerator()
             quiz_questions = quiz_generator.generate_quiz(
                 topic=quiz_topic,
@@ -298,36 +313,55 @@ def generate_quiz(session_id):
                 num_questions=num_questions
             )
             
+            print(f"✅ {len(quiz_questions)} questions générées")
+            
             # Convertir les objets Pydantic en dictionnaires
             quiz_dict = []
-            for question in quiz_questions:
-                quiz_dict.append({
+            for i, question in enumerate(quiz_questions):
+                quiz_question_dict = {
                     'question': question.question,
                     'options': question.options,
                     'correct_answer': question.correct_answer,
                     'explanation': question.explanation
-                })
+                }
+                quiz_dict.append(quiz_question_dict)
+                print(f"  Question {i+1}: {question.question[:50]}...")
             
             # Sauvegarder les questions dans la base de données
+            print(f"💾 Sauvegarde des questions en base...")
             db.create_quiz_questions(quiz['id'], quiz_dict)
             
-            return jsonify({
+            response_data = {
                 'quiz_id': quiz['id'],
                 'quiz': quiz_dict,
-                'topic': quiz_topic
-            })
+                'topic': quiz_topic,
+                'title': quiz_title,
+                'difficulty': difficulty,
+                'num_questions': len(quiz_dict)
+            }
+            
+            print(f"✅ Quiz généré avec succès! Retour de la réponse: quiz_id={quiz['id']}")
+            print(f"📤 Réponse JSON: {len(str(response_data))} caractères")
+            
+            return jsonify(response_data)
             
         except Exception as quiz_error:
-            print(f"Erreur lors de la génération du quiz: {quiz_error}")
+            print(f"❌ Erreur lors de la génération du quiz: {quiz_error}")
+            import traceback
+            traceback.print_exc()
+            
             # Supprimer le quiz créé en cas d'erreur de génération
             try:
                 db.supabase.table('quizzes').delete().eq('id', quiz['id']).execute()
+                print(f"🗑️ Quiz {quiz['id']} supprimé après erreur")
             except:
                 pass
             return jsonify({"error": f"Erreur lors de la génération du quiz: {str(quiz_error)}"}), 500
         
     except Exception as e:
-        print(f"Erreur lors de la génération du quiz: {e}")
+        print(f"❌ Erreur générale dans generate_quiz: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Erreur interne du serveur"}), 500
 
 @app.route('/api/quiz/submit/<quiz_id>', methods=['POST'])
@@ -416,6 +450,32 @@ def submit_quiz(quiz_id):
     except Exception as e:
         print(f"Erreur lors de la soumission du quiz: {e}")
         return jsonify({"error": "Erreur interne du serveur"}), 500
+
+@app.route('/api/debug/quiz/<quiz_id>', methods=['GET'])
+def debug_quiz(quiz_id):
+    """Debug: Affiche les détails d'un quiz"""
+    try:
+        quiz_data = db.get_quiz_with_questions(quiz_id)
+        return jsonify({
+            'quiz_found': bool(quiz_data['quiz']),
+            'quiz': quiz_data['quiz'],
+            'questions_count': len(quiz_data['questions']),
+            'questions': quiz_data['questions']
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/debug/quizzes', methods=['GET'])
+def debug_all_quizzes():
+    """Debug: Liste tous les quiz"""
+    try:
+        quizzes = db.supabase.table('quizzes').select('*').order('created_at', desc=True).limit(10).execute()
+        return jsonify({
+            'total_quizzes': len(quizzes.data),
+            'quizzes': quizzes.data
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/session/<session_id>', methods=['GET'])
 def get_session(session_id):

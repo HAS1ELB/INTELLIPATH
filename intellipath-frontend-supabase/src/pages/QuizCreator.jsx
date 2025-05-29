@@ -70,27 +70,51 @@ export default function QuizCreator() {
     });
   };
 
+  // Dans QuizCreator.jsx, modifier la fonction handleSubmit
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGenerating(true);
     setError('');
 
     try {
+      console.log('🚀 Début de la génération de quiz...');
+      
       // Convertir module_index de -1 à null si nécessaire (pour tout le syllabus)
       const quizData = {
         ...formData,
         module_index: formData.module_index === -1 ? null : formData.module_index
       };
       
+      console.log('📤 Données envoyées:', quizData);
+      
       const response = await api.quiz.generate(sessionId, quizData);
       
+      console.log('📥 Réponse reçue:', response);
+      
       if (response.quiz_id) {
+        console.log('✅ Quiz généré avec succès, ID:', response.quiz_id);
+        
+        // Naviguer vers la page de quiz avec l'ID
         navigate(`/quiz/${response.quiz_id}`);
+      } else if (response.quiz) {
+        console.log('✅ Quiz généré (sans ID), utilisation de l\'état');
+        
+        // Si pas d'ID, utiliser l'état pour passer les données
+        navigate('/quiz/view', { 
+          state: { 
+            quiz: response.quiz, 
+            topic: response.topic,
+            title: response.title || `Quiz sur ${response.topic}`,
+            quiz_id: response.quiz_id || 'temp'
+          } 
+        });
       } else {
-        navigate(`/quiz/view`, { state: { quiz: response.quiz, topic: response.topic } });
+        console.error('❌ Réponse invalide:', response);
+        setError('Réponse invalide du serveur');
       }
     } catch (error) {
-      console.error('Erreur lors de la génération du quiz:', error);
+      console.error('❌ Erreur lors de la génération du quiz:', error);
       setError('Une erreur est survenue lors de la génération du quiz');
     } finally {
       setGenerating(false);
