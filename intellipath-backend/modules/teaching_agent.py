@@ -71,7 +71,8 @@ class TeachingAgent:
         
         self.chain = self.prompt_template | self.llm | StrOutputParser()
     
-    def seed_agent(self, syllabus: str, topic: str) -> None:
+    def load_syllabus(self, syllabus: str, topic: str) -> None:
+        """Charge le syllabus et initialise l'agent"""
         self.syllabus = syllabus
         self.topic = topic
         self.conversation_history = []
@@ -79,7 +80,22 @@ class TeachingAgent:
         self._extract_modules_from_syllabus()
         self._extract_concepts_from_syllabus()
     
+    def set_modules(self, modules: List[Dict]) -> None:
+        """Définit les modules depuis la base de données"""
+        self.modules = []
+        for module in modules:
+            self.modules.append({
+                "title": module.get('title', ''),
+                "content": module.get('content', ''),
+                "index": module.get('order_index', 0) + 1
+            })
+    
+    def set_conversation_history(self, history: List[Dict]) -> None:
+        """Définit l'historique de conversation"""
+        self.conversation_history = history
+    
     def _extract_modules_from_syllabus(self) -> None:
+        """Extrait les modules du syllabus"""
         module_pattern = r'#+\s+(Module\s+\d+[.:]\s+.+|Partie\s+\d+[.:]\s+.+|Chapitre\s+\d+[.:]\s+.+|Section\s+\d+[.:]\s+.+)'
         module_titles = re.findall(module_pattern, self.syllabus, re.IGNORECASE)
         
@@ -114,6 +130,7 @@ class TeachingAgent:
             })
     
     def _extract_concepts_from_syllabus(self) -> None:
+        """Extrait les concepts clés du syllabus"""
         self.extracted_concepts = {}
         
         # Extraction des concepts à différents niveaux
@@ -156,6 +173,7 @@ class TeachingAgent:
         self.extracted_concepts["emphasis_concepts"] = list(unique_emphasis)
     
     def _find_relevant_module(self, query: str) -> Dict[str, Any]:
+        """Trouve le module le plus pertinent pour une requête"""
         if not self.modules:
             return {"title": "", "content": "", "relevance": 0}
         
@@ -180,6 +198,7 @@ class TeachingAgent:
         return best_match
     
     def _find_relevant_concepts(self, query: str) -> List[str]:
+        """Trouve les concepts pertinents pour une requête"""
         query_words = set(re.findall(r'\b\w{3,}\b', query.lower()))
         relevant_concepts = []
         
@@ -211,6 +230,7 @@ class TeachingAgent:
         return relevant_concepts[:7]  # Limiter à 7 concepts les plus pertinents
     
     def _analyze_question(self, query: str) -> str:
+        """Analyse le type de question posée"""
         question_types = [
             (r'\b(c\'est quoi|qu\'est[\s-]ce que|définition|signifie)\b', "définition"),
             (r'\b(comment|méthode|procédure|étape|manière)\b', "méthode"),
@@ -238,6 +258,7 @@ class TeachingAgent:
         return " ".join(context)
     
     def _prepare_conversation_context(self, query: str) -> str:
+        """Prépare le contexte de conversation"""
         # Limiter l'historique aux 5 derniers échanges pour économiser des tokens
         recent_history = self.conversation_history[-5:] if len(self.conversation_history) > 5 else self.conversation_history
         
@@ -252,7 +273,7 @@ class TeachingAgent:
         return f"Analyse de la question: {question_analysis}\n\nHistorique récent:\n{formatted_history}"
     
     def _get_syllabus_summary(self) -> str:
-        # Résumé du syllabus limité en tokens
+        """Retourne un résumé du syllabus"""
         if not self.syllabus:
             return "Aucun syllabus disponible."
             
@@ -277,6 +298,7 @@ class TeachingAgent:
         return summary
     
     def respond(self, user_input: str) -> str:
+        """Génère une réponse à la question de l'utilisateur"""
         if not self.syllabus or not self.topic:
             return "Veuillez d'abord initialiser l'agent avec un syllabus et un sujet."
         

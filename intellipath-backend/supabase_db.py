@@ -18,16 +18,106 @@ class SupabaseDB:
             raise ValueError("Les variables d'environnement SUPABASE_URL et SUPABASE_KEY sont requises")
         
         self.supabase: Client = create_client(supabase_url, supabase_key)
+        print(f"🔗 Connexion Supabase initialisée vers: {supabase_url}")
     
-    # === Méthodes pour les utilisateurs ===
+    # === Méthodes pour les sessions ===
     
-    def get_user(self, user_id: str) -> Dict:
-        """Récupère les informations d'un utilisateur"""
-        return self.supabase.table('users').select('*').eq('id', user_id).single().execute()
+    def create_session(self, user_id: str, syllabus_id: str) -> Dict:
+        """Crée une nouvelle session"""
+        session_data = {
+            'user_id': user_id,
+            'syllabus_id': syllabus_id
+        }
+        
+        try:
+            response = self.supabase.table('sessions').insert(session_data).execute()
+            session = response.data[0]
+            print(f"✅ Session créée: {session['id']}")
+            return session
+        except Exception as e:
+            print(f"❌ Erreur lors de la création de session: {e}")
+            raise e
     
-    def update_user(self, user_id: str, data: Dict) -> Dict:
-        """Met à jour les informations d'un utilisateur"""
-        return self.supabase.table('users').update(data).eq('id', user_id).execute()
+    def get_session_by_syllabus(self, syllabus_id: str, user_id: str) -> Dict:
+        """Récupère une session par syllabus_id et user_id"""
+        try:
+            print(f"🔍 Recherche de session par syllabus_id: {syllabus_id} pour user: {user_id}")
+            
+            response = self.supabase.table('sessions')\
+                .select('*')\
+                .eq('syllabus_id', syllabus_id)\
+                .eq('user_id', user_id)\
+                .order('created_at', desc=True)\
+                .limit(1)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                session = response.data[0]
+                print(f"✅ Session trouvée par syllabus: {session['id']}")
+                return session
+            else:
+                print(f"❌ Aucune session trouvée pour syllabus: {syllabus_id}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Erreur lors de la recherche de session par syllabus: {e}")
+            return None
+
+    def get_session(self, session_id: str) -> Dict:
+        """Récupère une session par son ID (peut être session_id ou syllabus_id)"""
+        try:
+            print(f"🔍 Recherche de la session: {session_id}")
+            
+            # D'abord essayer comme session_id
+            response = self.supabase.table('sessions')\
+                .select('*')\
+                .eq('id', session_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                session = response.data[0]
+                print(f"✅ Session trouvée par ID: {session['id']}")
+                return session
+            
+            # Si pas trouvé, essayer comme syllabus_id
+            print(f"🔄 Tentative de recherche par syllabus_id: {session_id}")
+            response = self.supabase.table('sessions')\
+                .select('*')\
+                .eq('syllabus_id', session_id)\
+                .order('created_at', desc=True)\
+                .limit(1)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                session = response.data[0]
+                print(f"✅ Session trouvée par syllabus_id: {session['id']}")
+                return session
+            
+            print(f"❌ Aucune session trouvée avec l'ID: {session_id}")
+            
+            # Debug: lister toutes les sessions pour voir ce qui existe
+            all_sessions = self.supabase.table('sessions').select('id, syllabus_id').limit(10).execute()
+            print(f"🔍 Sessions existantes: {[(s['id'], s['syllabus_id']) for s in all_sessions.data]}")
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Erreur lors de la récupération de la session {session_id}: {e}")
+            return None
+    
+    def list_sessions(self, user_id: str = None) -> List[Dict]:
+        """Liste toutes les sessions (pour debugging)"""
+        try:
+            query = self.supabase.table('sessions').select('*')
+            if user_id:
+                query = query.eq('user_id', user_id)
+            
+            response = query.execute()
+            print(f"📊 {len(response.data)} session(s) trouvée(s)")
+            return response.data
+        except Exception as e:
+            print(f"❌ Erreur lors du listing des sessions: {e}")
+            return []
     
     # === Méthodes pour les syllabus ===
     
@@ -47,9 +137,14 @@ class SupabaseDB:
             'created_by': user_id
         }
         
-        response = self.supabase.table('syllabus').insert(syllabus_data).execute()
-        syllabus_id = response.data[0]['id']
-        return {'id': syllabus_id, **syllabus_data}
+        try:
+            response = self.supabase.table('syllabus').insert(syllabus_data).execute()
+            syllabus = response.data[0]
+            print(f"✅ Syllabus créé: {syllabus['id']}")
+            return {'id': syllabus['id'], **syllabus_data}
+        except Exception as e:
+            print(f"❌ Erreur lors de la création du syllabus: {e}")
+            raise e
     
     def get_syllabus(self, syllabus_id: str) -> Dict:
         """Récupère un syllabus par son ID"""
@@ -306,38 +401,11 @@ class SupabaseDB:
             
             if response.data and len(response.data) > 0:
                 data = response.data[0]
-                data['messages'] = json.loads(data['messages'])
+                if isinstance(data['messages'], str):
+                    data['messages'] = json.loads(data['messages'])
                 return data
             else:
                 return None
         except Exception as e:
             print(f"Erreur lors de la récupération de la conversation: {e}")
-            return None
-    
-    # === Méthodes pour les sessions ===
-    
-    def create_session(self, user_id: str, syllabus_id: str) -> Dict:
-        """Crée une nouvelle session"""
-        session_data = {
-            'user_id': user_id,
-            'syllabus_id': syllabus_id
-        }
-        
-        response = self.supabase.table('sessions').insert(session_data).execute()
-        return response.data[0]
-    
-    def get_session(self, session_id: str) -> Dict:
-        """Récupère une session par son ID"""
-        try:
-            response = self.supabase.table('sessions')\
-                .select('*')\
-                .eq('id', session_id)\
-                .execute()
-            
-            if response.data and len(response.data) > 0:
-                return response.data[0]
-            else:
-                return None
-        except Exception as e:
-            print(f"Erreur lors de la récupération de la session: {e}")
             return None

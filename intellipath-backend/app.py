@@ -140,7 +140,7 @@ def conversation(session_id):
         except Exception as e:
             return jsonify({"error": f"Token invalide: {str(e)}"}), 401
         
-        # Récupération de la session
+        # Récupération de la session (peut être session_id ou syllabus_id)
         session = db.get_session(session_id)
         if not session:
             print(f"Session {session_id} non trouvée")
@@ -175,11 +175,27 @@ def conversation(session_id):
         # Ajouter le message utilisateur à l'historique
         messages.append({"role": "user", "content": message})
         
-        # Réponse simple pour test sans TeachingAgent
-        if "module 1" in message.lower():
-            response = f"Le Module 1 de notre cours sur {syllabus_data['topic']} couvre les concepts fondamentaux et les bases essentielles. Il a été conçu pour établir une compréhension solide des principes clés."
-        else:
-            response = f"Je suis votre assistant pour le cours '{syllabus_data['topic']}'. Comment puis-je vous aider dans votre apprentissage aujourd'hui?"
+        # Utiliser le TeachingAgent pour générer une réponse
+        try:
+            # Récupération des modules pour enrichir le contexte
+            modules = db.get_modules(syllabus_id)
+            
+            # Créer une instance du TeachingAgent
+            teaching_agent = TeachingAgent()
+            teaching_agent.load_syllabus(syllabus_data['content'], syllabus_data['topic'])
+            teaching_agent.set_modules(modules)
+            teaching_agent.set_conversation_history(messages[:-1])  # Exclure le dernier message utilisateur
+            
+            # Générer la réponse
+            response = teaching_agent.respond(message)
+            
+        except Exception as e:
+            print(f"Erreur avec TeachingAgent: {e}")
+            # Réponse de secours en cas d'erreur avec l'agent
+            if "module 1" in message.lower():
+                response = f"Le Module 1 de notre cours sur {syllabus_data['topic']} couvre les concepts fondamentaux et les bases essentielles. Il a été conçu pour établir une compréhension solide des principes clés."
+            else:
+                response = f"Je suis votre assistant pour le cours '{syllabus_data['topic']}'. Comment puis-je vous aider dans votre apprentissage aujourd'hui?"
         
         # Ajouter la réponse à l'historique
         messages.append({"role": "assistant", "content": response})
@@ -202,44 +218,43 @@ def conversation(session_id):
 @app.route('/api/quiz/<session_id>', methods=['POST'])
 def generate_quiz(session_id):
     """Génère un quiz et l'enregistre dans la base de données"""
-    
-    print(f"Nouvelle requête de conversation pour session {session_id}")
+    try:
+        print(f"Nouvelle requête de génération de quiz pour session {session_id}")
         
         # Vérification de l'authentification
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({"error": "Authentification requise"}), 401
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Authentification requise"}), 401
         
         # Récupération du token JWT
-    token = auth_header.split(' ')[1]
+        token = auth_header.split(' ')[1]
         
-    try:
-        # Vérifier le token avec Supabase
-        user_response = db.supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            return jsonify({"error": "Token invalide"}), 401
-        user_id = user_response.user.id
-    except Exception as e:
-        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
+        try:
+            # Vérifier le token avec Supabase
+            user_response = db.supabase.auth.get_user(token)
+            if not user_response or not user_response.user:
+                return jsonify({"error": "Token invalide"}), 401
+            user_id = user_response.user.id
+        except Exception as e:
+            return jsonify({"error": f"Token invalide: {str(e)}"}), 401
         
-    # Récupération de la session
-    session = db.get_session(session_id)
-    if not session:
-        print(f"Session {session_id} non trouvée")
-        return jsonify({"error": "Session non trouvée"}), 404
+        # Récupération de la session (peut être session_id ou syllabus_id)
+        session = db.get_session(session_id)
+        if not session:
+            print(f"Session {session_id} non trouvée")
+            return jsonify({"error": "Session non trouvée"}), 404
         
         # Vérifier que l'utilisateur a accès à cette session
-    if session['user_id'] != user_id:
-        return jsonify({"error": "Accès non autorisé à cette session"}), 403
-    
-    syllabus_id = session['syllabus_id']
-    
-    data = request.json
-    module_index = data.get('module_index')
-    num_questions = data.get('num_questions', 5)
-    difficulty = data.get('difficulty', 'moyen')
-    
-    try:
+        if session['user_id'] != user_id:
+            return jsonify({"error": "Accès non autorisé à cette session"}), 403
+        
+        syllabus_id = session['syllabus_id']
+        
+        data = request.json
+        module_index = data.get('module_index')
+        num_questions = data.get('num_questions', 5)
+        difficulty = data.get('difficulty', 'moyen')
+        
         # Récupération du syllabus
         syllabus_data = db.get_syllabus(syllabus_id)
         if not syllabus_data:
@@ -275,31 +290,41 @@ def generate_quiz(session_id):
             return jsonify({"error": "Erreur lors de la création du quiz"}), 500
         
         # Générer le quiz
-        quiz_generator = QuizGenerator()
-        quiz_questions = quiz_generator.generate_quiz(
-            topic=quiz_topic,
-            difficulty=difficulty,
-            num_questions=num_questions
-        )
-        
-        # Convertir les objets Pydantic en dictionnaires
-        quiz_dict = []
-        for question in quiz_questions:
-            quiz_dict.append({
-                'question': question.question,
-                'options': question.options,
-                'correct_answer': question.correct_answer,
-                'explanation': question.explanation
+        try:
+            quiz_generator = QuizGenerator()
+            quiz_questions = quiz_generator.generate_quiz(
+                topic=quiz_topic,
+                difficulty=difficulty,
+                num_questions=num_questions
+            )
+            
+            # Convertir les objets Pydantic en dictionnaires
+            quiz_dict = []
+            for question in quiz_questions:
+                quiz_dict.append({
+                    'question': question.question,
+                    'options': question.options,
+                    'correct_answer': question.correct_answer,
+                    'explanation': question.explanation
+                })
+            
+            # Sauvegarder les questions dans la base de données
+            db.create_quiz_questions(quiz['id'], quiz_dict)
+            
+            return jsonify({
+                'quiz_id': quiz['id'],
+                'quiz': quiz_dict,
+                'topic': quiz_topic
             })
-        
-        # Sauvegarder les questions dans la base de données
-        db.create_quiz_questions(quiz['id'], quiz_dict)
-        
-        return jsonify({
-            'quiz_id': quiz['id'],
-            'quiz': quiz_dict,
-            'topic': quiz_topic
-        })
+            
+        except Exception as quiz_error:
+            print(f"Erreur lors de la génération du quiz: {quiz_error}")
+            # Supprimer le quiz créé en cas d'erreur de génération
+            try:
+                db.supabase.table('quizzes').delete().eq('id', quiz['id']).execute()
+            except:
+                pass
+            return jsonify({"error": f"Erreur lors de la génération du quiz: {str(quiz_error)}"}), 500
         
     except Exception as e:
         print(f"Erreur lors de la génération du quiz: {e}")
@@ -394,26 +419,26 @@ def submit_quiz(quiz_id):
 
 @app.route('/api/session/<session_id>', methods=['GET'])
 def get_session(session_id):
-    """Récupère les données d'une session"""
+    """Récupère les données d'une session (accepte session_id ou syllabus_id)"""
     # Vérification de l'authentification
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-      return jsonify({"error": "Authentification requise"}), 401
+        return jsonify({"error": "Authentification requise"}), 401
         
-        # Récupération du token JWT
+    # Récupération du token JWT
     token = auth_header.split(' ')[1]
         
     try:
-            # Vérifier le token avec Supabase
-            user_response = db.supabase.auth.get_user(token)
-            if not user_response or not user_response.user:
-                return jsonify({"error": "Token invalide"}), 401
-            user_id = user_response.user.id
+        # Vérifier le token avec Supabase
+        user_response = db.supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return jsonify({"error": "Token invalide"}), 401
+        user_id = user_response.user.id
     except Exception as e:
-            return jsonify({"error": f"Token invalide: {str(e)}"}), 401
+        return jsonify({"error": f"Token invalide: {str(e)}"}), 401
     
     try:
-        # Récupération de la session
+        # Récupération de la session (peut être session_id ou syllabus_id)
         session = db.get_session(session_id)
         if not session:
             print(f"Session {session_id} non trouvée")
@@ -441,6 +466,7 @@ def get_session(session_id):
         progress = db.get_user_progress(user_id, syllabus_id)
         
         return jsonify({
+            'session_id': session['id'],  # Retourner le vrai session_id
             'topic': syllabus_data['topic'],
             'syllabus': syllabus_data,
             'modules': modules,
@@ -592,6 +618,49 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({'error': 'Erreur interne du serveur'}), 500
+
+@app.route('/api/debug/sessions', methods=['GET'])
+def debug_sessions():
+    """Debug: Liste toutes les sessions"""
+    try:
+        sessions = db.list_sessions()
+        return jsonify({
+            'total_sessions': len(sessions),
+            'sessions': sessions
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/debug/sessions/<user_id>', methods=['GET'])
+def debug_user_sessions(user_id):
+    """Debug: Sessions d'un utilisateur spécifique"""
+    try:
+        sessions = db.list_sessions(user_id)
+        return jsonify({
+            'user_id': user_id,
+            'total_sessions': len(sessions),
+            'sessions': sessions
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/debug/session/<session_id>', methods=['GET'])
+def debug_session_details(session_id):
+    """Debug: Détails d'une session spécifique"""
+    try:
+        session = db.get_session(session_id)
+        if session:
+            return jsonify({
+                'session_found': True,
+                'session': session
+            })
+        else:
+            return jsonify({
+                'session_found': False,
+                'message': f'Session {session_id} not found'
+            }), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     print("🚀 Démarrage du serveur IntelliPath...")
