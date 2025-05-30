@@ -6,9 +6,17 @@ export default defineConfig({
   plugins: [react()],
   base: '/', // Root path for Netlify
   build: {
-    outDir: 'dist', // Default output directory
-    assetsDir: 'assets', // Default assets directory
-    sourcemap: false // Disable sourcemaps for production
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+    rollupOptions: {
+      input: './index.html', // Explicitly set entry point
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]'
+      }
+    }
   },
   server: {
     proxy: {

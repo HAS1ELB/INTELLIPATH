@@ -2,3 +2,4 @@ intellipath-frontend/
 node_modules/
 __pycache__/
 *.env
+dist/
